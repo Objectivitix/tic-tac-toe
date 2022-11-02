@@ -1,4 +1,4 @@
-const events = (function () {
+const events = (function() {
   const eMap = {};
 
   function on(eName, callbackFn) {
@@ -8,7 +8,7 @@ const events = (function () {
 
   function off(eName, callbackFn) {
     if (!eMap[eName]) return;
-    eMap[eName].splice(eMap[eName].index(callbackFn), 1);
+    eMap[eName].splice(eMap[eName].indexOf(callbackFn), 1);
   }
 
   function emit(eName, data) {
@@ -23,7 +23,7 @@ const events = (function () {
   }
 })();
 
-const board = (function () {
+const board = (function() {
   const boardArray = Array(9).fill("");
   const winningPosSets = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -33,20 +33,19 @@ const board = (function () {
 
   const squares = document.querySelectorAll(".board > div");
 
-  squares.forEach(square => square.addEventListener(
-    "click", emitEvent, {once: true}));
+  squares.forEach(square => square.addEventListener("click", emitEvent));
 
   function emitEvent(evt) {
-    events.emit("squareClick", evt.target);
+    events.emit("squareClick", evt.target.dataset.index);
   }
 
-  function render(index) {
+  function renderSquare(index) {
     squares[index].textContent = boardArray[index];
   }
 
   function fillSquare(index, string) {
     boardArray[index] = string;
-    render(index);
+    renderSquare(index);
   }
 
   function getResult() {
@@ -56,18 +55,28 @@ const board = (function () {
         return line[0];
     }
 
-    if (boardArray.every(value => value !== ""))
+    if (!getAvailableIndices().length)
       return "tie";
   }
 
-  function freeze() {
+  function getAvailableIndices() {
+    return boardArray.map((e, i) => e === "" ? i : -1).filter(e => e > -1);
+  }
+
+  function unbindAll() {
     squares.forEach(square => square.removeEventListener("click", emitEvent));
+  }
+
+  function unbindSquare(index) {
+    squares[index].removeEventListener("click", emitEvent);
   }
 
   return {
     fillSquare,
     getResult,
-    freeze,
+    getAvailableIndices,
+    unbindAll,
+    unbindSquare,
   };
 })();
 
@@ -78,7 +87,7 @@ const Player = function(marker, name) {
   };
 }
 
-const game = (function () {
+const game = (function() {
   const player1 = Player("X");
   const player2 = Player("O");
   let player1Turn = true;
@@ -87,16 +96,19 @@ const game = (function () {
 
   events.on("squareClick", makeMove);
 
-  function makeMove(square) {
-    board.fillSquare(square.dataset.index, (player1Turn ? player1 : player2).marker);
-    player1Turn = !player1Turn;
+  function makeMove(index) {
+    board.unbindSquare(index);
+    board.fillSquare(index, (player1Turn ? player1 : player2).marker);
 
     const res = board.getResult();
     if (res) handleResult(res);
+
+    player1Turn = !player1Turn;
+    if (!player1Turn) makeMove(bot.computeOptimalMove());
   }
 
   function handleResult(res) {
-    board.freeze();
+    board.unbindAll();
 
     const winner =
       res === player1.marker ? player1 :
@@ -105,5 +117,16 @@ const game = (function () {
 
     resultDiv.textContent =
       winner === "tie" ? "It's a tie!" : `HEHEHEHAW ${winner.name} wins!`;
+  }
+})();
+
+const bot = (function() {
+  function computeOptimalMove() {
+    const possibleMoves = board.getAvailableIndices();
+    return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+  }
+
+  return {
+    computeOptimalMove,
   }
 })();
