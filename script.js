@@ -48,15 +48,21 @@ const board = (function() {
     renderSquare(index);
   }
 
-  function getResult() {
+  function getResult(arr) {
+    bArray = arr ?? boardArray;
     for (posSet of winningPosSets) {
-      const line = posSet.map(pos => boardArray[pos]);
-      if (line[0] && line.every(value => value === line[0]))
+      const line = posSet.map(pos => bArray[pos]);
+      if (line[0] && line.every(value => value === line[0])) {
         return line[0];
+      }
     }
 
-    if (!getAvailableIndices().length)
+    if (bArray.every(value => value !== ""))
       return "tie";
+  }
+
+  function getBoardArray() {
+    return boardArray;
   }
 
   function getAvailableIndices() {
@@ -74,6 +80,7 @@ const board = (function() {
   return {
     fillSquare,
     getResult,
+    getBoardArray,
     getAvailableIndices,
     unbindAll,
     unbindSquare,
@@ -87,10 +94,85 @@ const Player = function(marker, name) {
   };
 }
 
+const bot = (function() {
+  let opponentMarker;
+  let botMarker;
+
+  function init(oMarker, bMarker) {
+    opponentMarker = oMarker;
+    botMarker = bMarker;
+  }
+
+  function getLeafValue(gameResult) {
+    return (
+      gameResult === botMarker ? -1 :
+      gameResult === opponentMarker ? 1 :
+      0
+    );
+  }
+
+  function createDataObject(boardArray, possibleMoves) {
+    return {
+      boardArray: boardArray.slice(),
+      possibleMoves: possibleMoves.slice(),
+    };
+  }
+
+  function minimax(move, maximizingOpponent, data) {
+    let { boardArray, possibleMoves } = data;
+
+    boardArray[move] = maximizingOpponent ? botMarker : opponentMarker;
+    possibleMoves.splice(possibleMoves.indexOf(move), 1);
+
+    const res = board.getResult(boardArray);
+    if (res) return getLeafValue(res);
+
+    if (maximizingOpponent) {
+      let maxEval = -Infinity;
+      for (move of possibleMoves) {
+        const eval = minimax(move, false, createDataObject(boardArray, possibleMoves));
+        maxEval = Math.max(eval, maxEval);
+      }
+      return maxEval;
+    } else {
+      let minEval = Infinity;
+      for (move of possibleMoves) {
+        const eval = minimax(move, true, createDataObject(boardArray, possibleMoves));
+        minEval = Math.min(eval, minEval);
+      }
+      return minEval;
+    }
+  }
+
+  function computeOptimalMove() {
+    const boardArray = board.getBoardArray();
+    const possibleMoves = board.getAvailableIndices();
+
+    const movesValueMap = {};
+
+    for (move of possibleMoves) {
+      const value = minimax(move, true, createDataObject(boardArray, possibleMoves));
+      movesValueMap[value] = move;
+    }
+
+    const minKey = Object.keys(movesValueMap)
+      .reduce((prev, curr) => prev < curr ? prev : curr);
+
+    return movesValueMap[minKey];
+  }
+
+  return {
+    init,
+    computeOptimalMove,
+  }
+})();
+
 const game = (function() {
   const player1 = Player("X");
   const player2 = Player("O");
   let player1Turn = true;
+
+  bot.init(player1.marker, player2.marker);
 
   const resultDiv = document.querySelector(".result");
 
@@ -117,16 +199,5 @@ const game = (function() {
 
     resultDiv.textContent =
       winner === "tie" ? "It's a tie!" : `HEHEHEHAW ${winner.name} wins!`;
-  }
-})();
-
-const bot = (function() {
-  function computeOptimalMove() {
-    const possibleMoves = board.getAvailableIndices();
-    return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-  }
-
-  return {
-    computeOptimalMove,
   }
 })();
