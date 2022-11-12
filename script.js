@@ -1,64 +1,21 @@
-const events = (function() {
-  const eMap = {};
-
-  function on(eName, callbackFn) {
-    if (!eMap[eName]) eMap[eName] = [];
-    eMap[eName].push(callbackFn);
-  }
-
-  function off(eName, callbackFn) {
-    if (!eMap[eName]) return;
-    eMap[eName].splice(eMap[eName].indexOf(callbackFn), 1);
-  }
-
-  function emit(eName, data) {
-    if (!eMap[eName]) return;
-    eMap[eName].forEach(fn => fn(data));
-  }
-
-  return {
-    on,
-    off,
-    emit,
-  }
-})();
-
 const board = (function() {
-  const boardArray = Array(9).fill("");
-  const winningPosSets = [
+  const WINNING_POS_SETS = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8],
     [0, 3, 6], [1, 4, 7], [2, 5, 8],
     [0, 4, 8], [2, 4, 6],
   ];
 
+  const boardArray = Array(9).fill("");
+
   const squares = document.querySelectorAll(".board > div");
+  squares.forEach(square => square.addEventListener("click", makeMove));
 
-  squares.forEach(square => square.addEventListener("click", emitSquareClick));
-
-  function emitSquareClick(evt) {
-    events.emit("squareClick", evt.target.dataset.index);
+  function makeMove(evt) {
+    gameCore.makeMove(evt.target.dataset.index);
   }
 
   function renderSquare(index) {
     squares[index].textContent = boardArray[index];
-  }
-
-  function fillSquare(index, string) {
-    boardArray[index] = string;
-    renderSquare(index);
-  }
-
-  function getResult(arr) {
-    bArray = arr ?? boardArray;
-    for (posSet of winningPosSets) {
-      const line = posSet.map(pos => bArray[pos]);
-      if (line[0] && line.every(value => value === line[0])) {
-        return line[0];
-      }
-    }
-
-    if (bArray.every(value => value !== ""))
-      return "tie";
   }
 
   function getBoardArray() {
@@ -69,29 +26,47 @@ const board = (function() {
     return boardArray.map((e, i) => e === "" ? i : -1).filter(e => e > -1);
   }
 
-  function unbindAll() {
-    squares.forEach(square => square.removeEventListener("click", emitSquareClick));
+  function getResult(arr) {
+    bArray = arr ?? boardArray;
+    for (posSet of WINNING_POS_SETS) {
+      const line = posSet.map(pos => bArray[pos]);
+      if (line[0] && line.every(value => value === line[0])) {
+        return line[0];
+      }
+    }
+
+    if (bArray.every(value => value !== ""))
+      return "tie";
   }
 
   function unbindSquare(index) {
-    squares[index].removeEventListener("click", emitSquareClick);
+    squares[index].removeEventListener("click", makeMove);
+  }
+
+  function unbindAll() {
+    squares.forEach((_, i) => unbindSquare(i));
+  }
+
+  function fillSquare(index, string) {
+    boardArray[index] = string;
+    renderSquare(index);
   }
 
   function reset() {
     boardArray.fill("");
-    squares.forEach(square => {
-      square.textContent = "";
-      square.addEventListener("click", emitSquareClick);
+    squares.forEach((square, i) => {
+      renderSquare(i);
+      square.addEventListener("click", makeMove);
     });
   }
 
   return {
-    fillSquare,
-    getResult,
     getBoardArray,
     getAvailableIndices,
-    unbindAll,
+    getResult,
     unbindSquare,
+    unbindAll,
+    fillSquare,
     reset,
   };
 })();
@@ -107,9 +82,11 @@ const bot = (function() {
   let opponentMarker;
   let botMarker;
 
-  function setMarkers(oMarker, bMarker) {
-    opponentMarker = oMarker;
-    botMarker = bMarker;
+  function createDataObject(boardArray, possibleMoves) {
+    return {
+      boardArray: boardArray.slice(),
+      possibleMoves: possibleMoves.slice(),
+    };
   }
 
   function simulateMove(move, marker, boardArray, possibleMoves) {
@@ -123,13 +100,6 @@ const bot = (function() {
       gameResult === opponentMarker ? 1 :
       0
     );
-  }
-
-  function createDataObject(boardArray, possibleMoves) {
-    return {
-      boardArray: boardArray.slice(),
-      possibleMoves: possibleMoves.slice(),
-    };
   }
 
   function minimax(move, maximizingOpponent, alpha, beta, data) {
@@ -166,6 +136,11 @@ const bot = (function() {
     }
   }
 
+  function setMarkers(oMarker, bMarker) {
+    opponentMarker = oMarker;
+    botMarker = bMarker;
+  }
+
   function computeOptimalMove() {
     const boardArray = board.getBoardArray();
     const possibleMoves = board.getAvailableIndices();
@@ -173,8 +148,8 @@ const bot = (function() {
     const movesValueMap = {};
 
     for (move of possibleMoves) {
-      const initialData = createDataObject(boardArray, possibleMoves);
-      const value = minimax(move, true, -Infinity, Infinity, initialData);
+      const data = createDataObject(boardArray, possibleMoves);
+      const value = minimax(move, true, -Infinity, Infinity, data);
       movesValueMap[value] = move;
     }
 
@@ -193,12 +168,11 @@ const bot = (function() {
 const gameCore = (function() {
   const player1 = Player("X");
   const player2 = Player("O");
+
   let player1Turn = true;
-  let useBot;
+  let player2IsBot;
 
   bot.setMarkers(player1.marker, player2.marker);
-
-  events.on("squareClick", makeMove);
 
   function makeMove(index) {
     board.unbindSquare(index);
@@ -215,11 +189,12 @@ const gameCore = (function() {
     }
 
     player1Turn = !player1Turn;
-    if (useBot && !player1Turn) makeMove(bot.computeOptimalMove());
+    if (player2IsBot && !player1Turn)
+      makeMove(bot.computeOptimalMove());
   }
 
-  function setUseBot(boolean) {
-    useBot = boolean;
+  function useBotForPlayer2(boolean) {
+    player2IsBot = boolean;
   }
 
   function reset() {
@@ -227,7 +202,8 @@ const gameCore = (function() {
   }
 
   return {
-    setUseBot,
+    makeMove,
+    useBotForPlayer2,
     reset,
   }
 })();
@@ -245,16 +221,16 @@ const gameUI = (function() {
   restartButton.addEventListener("click", restartGame);
 
   function setPlayer() {
-    gameCore.setUseBot(false);
-    changeDisplay();
+    gameCore.useBotForPlayer2(false);
+    startGame();
   }
 
   function setBot() {
-    gameCore.setUseBot(true);
-    changeDisplay();
+    gameCore.useBotForPlayer2(true);
+    startGame();
   }
 
-  function changeDisplay() {
+  function startGame() {
     startButtons.classList.add("nope");
     boardDiv.classList.remove("nope");
   }
