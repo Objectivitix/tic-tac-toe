@@ -98,9 +98,14 @@ const bot = (function() {
   let opponentMarker;
   let botMarker;
 
-  function init(oMarker, bMarker) {
+  function setMarkers(oMarker, bMarker) {
     opponentMarker = oMarker;
     botMarker = bMarker;
+  }
+
+  function simulateMove(move, marker, boardArray, possibleMoves) {
+    boardArray[move] = marker;
+    possibleMoves.splice(possibleMoves.indexOf(move), 1);
   }
 
   function getLeafValue(gameResult) {
@@ -118,11 +123,11 @@ const bot = (function() {
     };
   }
 
-  function minimax(move, maximizingOpponent, data) {
+  function minimax(move, maximizingOpponent, alpha, beta, data) {
     let { boardArray, possibleMoves } = data;
 
-    boardArray[move] = maximizingOpponent ? botMarker : opponentMarker;
-    possibleMoves.splice(possibleMoves.indexOf(move), 1);
+    const marker = maximizingOpponent ? botMarker : opponentMarker;
+    simulateMove(move, marker, boardArray, possibleMoves);
 
     const res = board.getResult(boardArray);
     if (res) return getLeafValue(res);
@@ -130,15 +135,23 @@ const bot = (function() {
     if (maximizingOpponent) {
       let maxEval = -Infinity;
       for (move of possibleMoves) {
-        const eval = minimax(move, false, createDataObject(boardArray, possibleMoves));
+        const newData = createDataObject(boardArray, possibleMoves);
+        const eval = minimax(move, false, alpha, beta, newData);
         maxEval = Math.max(eval, maxEval);
+
+        alpha = Math.max(alpha, eval);
+        if (beta <= alpha) break;
       }
       return maxEval;
     } else {
       let minEval = Infinity;
       for (move of possibleMoves) {
-        const eval = minimax(move, true, createDataObject(boardArray, possibleMoves));
+        const newData = createDataObject(boardArray, possibleMoves);
+        const eval = minimax(move, true, alpha, beta, newData);
         minEval = Math.min(eval, minEval);
+
+        beta = Math.min(beta, eval);
+        if (beta <= alpha) break;
       }
       return minEval;
     }
@@ -151,7 +164,8 @@ const bot = (function() {
     const movesValueMap = {};
 
     for (move of possibleMoves) {
-      const value = minimax(move, true, createDataObject(boardArray, possibleMoves));
+      const initialData = createDataObject(boardArray, possibleMoves);
+      const value = minimax(move, true, -Infinity, Infinity, initialData);
       movesValueMap[value] = move;
     }
 
@@ -162,7 +176,7 @@ const bot = (function() {
   }
 
   return {
-    init,
+    setMarkers,
     computeOptimalMove,
   }
 })();
@@ -172,7 +186,7 @@ const game = (function() {
   const player2 = Player("O");
   let player1Turn = true;
 
-  bot.init(player1.marker, player2.marker);
+  bot.setMarkers(player1.marker, player2.marker);
 
   const resultDiv = document.querySelector(".result");
 
