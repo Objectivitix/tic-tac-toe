@@ -253,7 +253,7 @@ const gameUI = (function() {
 
     restartButton.classList.remove("nope");
     resultDiv.textContent =
-      winner === "tie" ? "It's a tie!" : `HEHEHEHAW ${winner.name} wins!`;
+      winner === "tie" ? "It's a tie!" : `${winner.name} wins!`;
   }
 
   return {

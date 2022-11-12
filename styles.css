@@ -21,6 +21,12 @@ ul {
   list-style: none;
 }
 
+button {
+  font-family: inherit;
+  font-weight: inherit;
+  font-size: 100%;
+}
+
 /* LOLZ */
 
 body {
@@ -38,6 +44,33 @@ body {
   position: absolute;
   top: -3rem;
   transform: translateY(-100%);
+  font-size: 1.125rem;
+  text-align: center;
+  width: 100%;
+}
+
+.buttons button {
+  background: none;
+  box-shadow: -2px 2px 5px -2px hsl(0 0% 0% / 50%);
+  clip-path: inset(1px 1px -5px -5px);
+  padding: 0.625rem 0.875rem;
+  border: 0;
+  transition: box-shadow 250ms;
+}
+
+.buttons button:hover {
+  box-shadow: -2px 2px 5px 0 hsl(0 0% 0% / 50%);
+}
+
+.buttons button:active {
+  box-shadow: none;
+  transition: box-shadow 100ms;
+}
+
+.start-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
 }
 
 .start-buttons.nope {
@@ -80,5 +113,8 @@ body {
 .result {
   position: absolute;
   bottom: -3rem;
+  transform: translateY(100%);
+  font-size: 1.75rem;
   text-align: center;
+  width: 100%;
 }
