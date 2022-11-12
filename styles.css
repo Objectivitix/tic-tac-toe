@@ -30,12 +30,30 @@ body {
   align-items: center;
 }
 
+.buttons {
+  position: absolute;
+  top: -3rem;
+  transform: translateY(-100%);
+}
+
+.start-buttons.nope {
+  display: none;
+}
+
+.restart-button.nope {
+  display: none;
+}
+
 .board {
   width: 50vmin;
   height: 50vmin;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
+}
+
+.board.nope {
+  visibility: hidden;
 }
 
 .board > div {

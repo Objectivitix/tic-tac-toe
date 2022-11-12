@@ -33,9 +33,9 @@ const board = (function() {
 
   const squares = document.querySelectorAll(".board > div");
 
-  squares.forEach(square => square.addEventListener("click", emitEvent));
+  squares.forEach(square => square.addEventListener("click", emitSquareClick));
 
-  function emitEvent(evt) {
+  function emitSquareClick(evt) {
     events.emit("squareClick", evt.target.dataset.index);
   }
 
@@ -70,11 +70,19 @@ const board = (function() {
   }
 
   function unbindAll() {
-    squares.forEach(square => square.removeEventListener("click", emitEvent));
+    squares.forEach(square => square.removeEventListener("click", emitSquareClick));
   }
 
   function unbindSquare(index) {
-    squares[index].removeEventListener("click", emitEvent);
+    squares[index].removeEventListener("click", emitSquareClick);
+  }
+
+  function reset() {
+    boardArray.fill("");
+    squares.forEach(square => {
+      square.textContent = "";
+      square.addEventListener("click", emitSquareClick);
+    });
   }
 
   return {
@@ -84,6 +92,7 @@ const board = (function() {
     getAvailableIndices,
     unbindAll,
     unbindSquare,
+    reset,
   };
 })();
 
@@ -181,14 +190,13 @@ const bot = (function() {
   }
 })();
 
-const game = (function() {
+const gameCore = (function() {
   const player1 = Player("X");
   const player2 = Player("O");
   let player1Turn = true;
+  let useBot;
 
   bot.setMarkers(player1.marker, player2.marker);
-
-  const resultDiv = document.querySelector(".result");
 
   events.on("squareClick", makeMove);
 
@@ -197,21 +205,82 @@ const game = (function() {
     board.fillSquare(index, (player1Turn ? player1 : player2).marker);
 
     const res = board.getResult();
-    if (res) handleResult(res);
+    if (res) {
+      const winner =
+        res === player1.marker ? player1 :
+        res === player2.marker ? player2 :
+        res;
+
+      gameUI.handleResult(winner);
+    }
 
     player1Turn = !player1Turn;
-    if (!player1Turn) makeMove(bot.computeOptimalMove());
+    if (useBot && !player1Turn) makeMove(bot.computeOptimalMove());
   }
 
-  function handleResult(res) {
+  function setUseBot(boolean) {
+    useBot = boolean;
+  }
+
+  function reset() {
+    player1Turn = true;
+  }
+
+  return {
+    setUseBot,
+    reset,
+  }
+})();
+
+const gameUI = (function() {
+  const startButtons = document.querySelector(".start-buttons");
+  const playerButton = startButtons.querySelector(".player");
+  const botButton = startButtons.querySelector(".bot");
+  const restartButton = document.querySelector(".restart-button");
+  const boardDiv = document.querySelector(".board");
+  const resultDiv = document.querySelector(".result");
+
+  playerButton.addEventListener("click", setPlayer);
+  botButton.addEventListener("click", setBot);
+  restartButton.addEventListener("click", restartGame);
+
+  function setPlayer() {
+    gameCore.setUseBot(false);
+    changeDisplay();
+  }
+
+  function setBot() {
+    gameCore.setUseBot(true);
+    changeDisplay();
+  }
+
+  function changeDisplay() {
+    startButtons.classList.add("nope");
+    boardDiv.classList.remove("nope");
+  }
+
+  function restartGame() {
+    board.reset();
+    gameCore.reset();
+    resetDisplay();
+  }
+
+  function resetDisplay() {
+    startButtons.classList.remove("nope");
+    restartButton.classList.add("nope");
+    boardDiv.classList.add("nope");
+    resultDiv.textContent = "";
+  }
+
+  function handleResult(winner) {
     board.unbindAll();
 
-    const winner =
-      res === player1.marker ? player1 :
-      res === player2.marker ? player2 :
-      res;
-
+    restartButton.classList.remove("nope");
     resultDiv.textContent =
       winner === "tie" ? "It's a tie!" : `HEHEHEHAW ${winner.name} wins!`;
+  }
+
+  return {
+    handleResult,
   }
 })();
